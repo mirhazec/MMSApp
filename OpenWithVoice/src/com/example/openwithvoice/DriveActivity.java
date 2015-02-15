@@ -18,6 +18,7 @@ import android.provider.MediaStore;
 import android.speech.RecognizerIntent;
 import android.util.Log;
 import android.view.KeyEvent;
+import android.widget.ProgressBar;
 import android.widget.Toast;
 
 import com.google.android.gms.common.ConnectionResult;
@@ -28,7 +29,12 @@ import com.google.android.gms.common.api.GoogleApiClient.OnConnectionFailedListe
 import com.google.android.gms.common.api.ResultCallback;
 import com.google.android.gms.drive.Drive;
 import com.google.android.gms.drive.DriveApi.DriveContentsResult;
+import com.google.android.gms.drive.DriveContents;
+import com.google.android.gms.drive.DriveFile;
+import com.google.android.gms.drive.DriveFile.DownloadProgressListener;
+import com.google.android.gms.drive.DriveId;
 import com.google.android.gms.drive.MetadataChangeSet;
+import com.google.android.gms.drive.OpenFileActivityBuilder;
 
 
 public class DriveActivity extends Activity implements ConnectionCallbacks,
@@ -37,8 +43,15 @@ public class DriveActivity extends Activity implements ConnectionCallbacks,
     private static final String TAG = "android-drive-quickstart";
     private static final int REQUEST_CODE_CREATOR = 2;
     private static final int REQUEST_CODE_RESOLUTION = 3;
+    private static final int REQUEST_CODE_OPENER = 4;
     private static final int VOICE_RECOGNITION_REQUEST_CODE = 1234;
+ 
+   
 
+    /**
+     * File that is selected with the open file activity.
+     */
+   
 
     private GoogleApiClient mGoogleApiClient;
     private String words;
@@ -46,6 +59,8 @@ public class DriveActivity extends Activity implements ConnectionCallbacks,
     /**
      * Create a new file and save it to Drive.
      */
+    
+
     private void saveFileToDrive() {
        
         Log.i(TAG, "Creating new contents.");
@@ -56,18 +71,17 @@ public class DriveActivity extends Activity implements ConnectionCallbacks,
 
             @Override
             public void onResult(DriveContentsResult result) {
-                // If the operation was not successful, we cannot do anything
-                // and must
-                // fail.
+               
                 if (!result.getStatus().isSuccess()) {
                     Log.i(TAG, "Failed to create new contents.");
                     return;
                 }
-                // Otherwise, we can write our data to the new contents.
+               
                 Log.i(TAG, "New contents created.");
-                // Get an output stream for the contents.
+              
                 OutputStream outputStream = result.getDriveContents().getOutputStream();
-                // Write the bitmap data from it.
+                
+              
                
                
                 try {
@@ -75,10 +89,9 @@ public class DriveActivity extends Activity implements ConnectionCallbacks,
                 } catch (IOException e1) {
                     Log.i(TAG, "Unable to write file contents.");
                 }
-                // Create the initial metadata - MIME type and title.
-                // Note that the user will be able to change the title later.
+               
                 MetadataChangeSet metadataChangeSet = new MetadataChangeSet.Builder()
-                        .setMimeType("text/plain").setTitle("Recording.doc").build();
+                        .setMimeType("text/plain").setTitle("Note.doc").build();
                 // Create an intent for the file chooser, and start it.
                 IntentSender intentSender = Drive.DriveApi
                         .newCreateFileActivityBuilder()
@@ -88,12 +101,14 @@ public class DriveActivity extends Activity implements ConnectionCallbacks,
                 try {
                 	
                     startIntentSenderForResult(
-                            intentSender, REQUEST_CODE_CREATOR, null, 0, 0, 0);
-                   
+                            intentSender, REQUEST_CODE_CREATOR, null, 0, 0, 0);   
                     
                 } catch (SendIntentException e) {
                     Log.i(TAG, "Failed to launch file chooser.");
                 }
+                
+                
+           	 
               
                 
             }
@@ -105,10 +120,7 @@ public class DriveActivity extends Activity implements ConnectionCallbacks,
     protected void onResume() {
     	super.onResume();
     	if (mGoogleApiClient == null) {
-    		// Create the API client and bind it to an instance variable.
-            // We use this instance as the callback for connection and connection
-            // failures.
-            // Since no account name is passed, the user is prompted to choose.
+    	
             mGoogleApiClient = new GoogleApiClient.Builder(this)
                     .addApi(Drive.API)
                     .addScope(Drive.SCOPE_FILE)
@@ -116,7 +128,7 @@ public class DriveActivity extends Activity implements ConnectionCallbacks,
                     .addOnConnectionFailedListener(this)
                     .build();
     	}
-        // Connect the client. Once connected, the camera is launched.
+        // Connect the client. 
         mGoogleApiClient.connect();
     }
 
@@ -131,22 +143,27 @@ public class DriveActivity extends Activity implements ConnectionCallbacks,
     @Override
     protected void onActivityResult(final int requestCode, final int resultCode, final Intent data) {
     	 
-    	
+    	 
          words = null;
-         if (requestCode == VOICE_RECOGNITION_REQUEST_CODE
-                 && resultCode == RESULT_OK) {
+         if (requestCode==VOICE_RECOGNITION_REQUEST_CODE && resultCode == RESULT_OK) {
              ArrayList<String> matches = data
                      .getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
              words = matches.get(0);
              
              
              }
-         if(requestCode == REQUEST_CODE_CREATOR  && resultCode == RESULT_OK){
+    	 
+          if( requestCode==REQUEST_CODE_CREATOR && resultCode == RESULT_OK){
          Toast.makeText(getApplicationContext(), "Your file has been uploaded to drive", 
          		   Toast.LENGTH_LONG).show();
-         mGoogleApiClient.disconnect();
-         this.finish();
+         String url = "https://drive.google.com/?authuser=0#recent";
+     	 Uri uri = Uri.parse(url);
+     	Intent intent = new Intent(Intent.ACTION_VIEW, uri);
+     	 startActivity(intent);
+         Log.i(TAG, "entered creator.");
          }
+         
+    	 
          
     }
 
@@ -159,10 +176,7 @@ public class DriveActivity extends Activity implements ConnectionCallbacks,
             GooglePlayServicesUtil.getErrorDialog(result.getErrorCode(), this, 0).show();
             return;
         }
-        // The failure has a resolution. Resolve it.
-        // Called typically when the app is not yet authorized, and an
-        // authorization
-        // dialog is displayed to the user.
+     
         try {
             result.startResolutionForResult(this, REQUEST_CODE_RESOLUTION);
         } catch (SendIntentException e) {
@@ -213,18 +227,7 @@ public class DriveActivity extends Activity implements ConnectionCallbacks,
 
         return super.onKeyDown(keyCode, event);
     }
+
     
     
-    private void open(String fileId){
-    	  String link = "https://docs.google.com/file/d/"+fileId;
-    	  Uri path = Uri.parse(link);
-    	  Intent intent = new Intent(Intent.ACTION_VIEW);
-    	  intent.setDataAndType(path, "text/plain");
-    	  intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
-    	  try {
-    	       startActivity(intent);
-    	      } catch (Exception e) {
-    	    	  Log.i(TAG, "Open failed");
-    	     }
-    	      }
 }
